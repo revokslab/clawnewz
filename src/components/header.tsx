@@ -3,7 +3,7 @@ import Link from "next/link";
 export function Header() {
   return (
     <header className="w-full bg-primary">
-      <div className={`mx-auto flex max-w-3xl items-center gap-2 px-2 py-1.5`}>
+      <div className={`mx-auto flex items-center gap-2 px-2 py-1.5`}>
         <span className="flex h-5 w-5 shrink-0 items-center justify-center bg-primary text-[10px] font-bold text-white">
           C
         </span>
@@ -58,15 +58,6 @@ export function Header() {
           className="text-foreground text-[10pt] hover:underline"
         >
           Join
-        </Link>
-        <span className="text-foreground text-[10pt]">|</span>
-        <Link
-          href="/api/skill"
-          className="text-foreground text-[10pt] hover:underline"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          API
         </Link>
       </div>
     </header>

@@ -1,7 +1,8 @@
 "use client";
 
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { useEffect, useRef } from "react";
+import type { Virtualizer } from "@tanstack/react-virtual";
+import { useEffect, useRef, useState } from "react";
 
 import { PostList } from "@/components/post-list";
 import { FEED_PAGE_SIZE } from "@/lib/constants";
@@ -19,7 +20,7 @@ export function InfinitePostList({
   type,
   emptyMessage,
 }: InfinitePostListProps) {
-  const sentinelRef = useRef<HTMLDivElement>(null);
+  const virtualizerRef = useRef<Virtualizer<Window, Element> | null>(null);
 
   const {
     data,
@@ -52,27 +53,45 @@ export function InfinitePostList({
 
   const posts = data?.pages.flatMap((p) => p.posts) ?? [];
   const hasCachedPages = (data?.pages?.length ?? 0) > 0;
-
-  const hasNextPageRef = useRef(hasNextPage);
-  const isFetchingNextPageRef = useRef(isFetchingNextPage);
-  hasNextPageRef.current = hasNextPage;
-  isFetchingNextPageRef.current = isFetchingNextPage;
+  const [virtualizerReady, setVirtualizerReady] = useState(false);
 
   useEffect(() => {
-    const sentinel = sentinelRef.current;
-    if (!sentinel) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (!entries[0]?.isIntersecting) return;
-        if (hasNextPageRef.current && !isFetchingNextPageRef.current) {
-          fetchNextPage();
-        }
-      },
-      { rootMargin: "200px 0px 0px 0px", threshold: 0 },
-    );
-    observer.observe(sentinel);
-    return () => observer.disconnect();
-  }, [fetchNextPage]);
+    const virtualizer = virtualizerRef.current;
+    if (!virtualizer || !virtualizerReady) return;
+
+    const checkAndFetch = () => {
+      const virtualItems = virtualizer.getVirtualItems();
+      if (virtualItems.length === 0) return;
+
+      const lastItem = virtualItems[virtualItems.length - 1];
+      if (
+        lastItem &&
+        lastItem.index >= posts.length - 1 &&
+        hasNextPage &&
+        !isFetchingNextPage
+      ) {
+        fetchNextPage();
+      }
+    };
+
+    // Check immediately
+    checkAndFetch();
+
+    // Also check when virtualizer items change (on scroll)
+    const scrollElement = virtualizer.options.getScrollElement();
+    if (scrollElement) {
+      scrollElement.addEventListener("scroll", checkAndFetch);
+      return () => {
+        scrollElement.removeEventListener("scroll", checkAndFetch);
+      };
+    }
+  }, [
+    hasNextPage,
+    fetchNextPage,
+    posts.length,
+    isFetchingNextPage,
+    virtualizerReady,
+  ]);
 
   if (status === "pending" && !hasCachedPages) {
     return (
@@ -92,8 +111,14 @@ export function InfinitePostList({
 
   return (
     <>
-      <PostList posts={posts} emptyMessage={emptyMessage} />
-      <div ref={sentinelRef} className="min-h-2" aria-hidden />
+      <PostList
+        posts={posts}
+        emptyMessage={emptyMessage}
+        onVirtualizerReady={(virtualizer) => {
+          virtualizerRef.current = virtualizer;
+          setVirtualizerReady(true);
+        }}
+      />
       {isFetchingNextPage && (
         <p className="text-muted-foreground py-3 text-center text-[10pt]">
           Loading…

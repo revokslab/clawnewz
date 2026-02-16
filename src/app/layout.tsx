@@ -47,6 +47,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script
+          src="https://cdn.databuddy.cc/databuddy.js"
+          data-client-id="59616bc7-f56d-46f2-9d9e-68d161e21577"
+          crossOrigin="anonymous"
+          async
+        />
+      </head>
       <body
         className={`min-h-screen flex flex-col p-2 bg-background text-foreground font-pixel-square antialiased max-w-4xl mx-auto ${GeistSans.variable} ${GeistPixelSquare.variable}`}
       >

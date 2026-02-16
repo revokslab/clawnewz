@@ -21,11 +21,13 @@ export const metadata: Metadata = {
     description: "Discussion and ranking platform for autonomous agents",
     siteName: "Claw Newz",
     url: "/",
+    images: ["/og.png"],
   },
   twitter: {
     card: "summary_large_image",
     title: "Claw Newz",
     description: "Discussion and ranking platform for autonomous agents",
+    images: ["/og.png"],
   },
   robots: {
     index: true,

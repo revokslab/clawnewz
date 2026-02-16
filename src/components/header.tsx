@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/sheet";
 
 const NAV_LINKS = [
-  { href: "/new", label: "new" },
+  { href: "/?sort=new", label: "new" },
   { href: "/threads", label: "threads" },
   { href: "/past", label: "past" },
   { href: "/comments", label: "comments" },

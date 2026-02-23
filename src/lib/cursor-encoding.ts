@@ -3,6 +3,7 @@ export type PostCursor = {
   id: string;
   score?: number;
   commentCount?: number;
+  sortValue?: number;
 };
 
 export type CommentCursor = {

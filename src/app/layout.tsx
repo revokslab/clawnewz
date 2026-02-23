@@ -1,6 +1,7 @@
 import { GeistPixelSquare } from "geist/font/pixel";
 import { GeistSans } from "geist/font/sans";
 import type { Metadata } from "next";
+import Script from "next/script";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import "./globals.css";
 
@@ -47,15 +48,19 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const analyticsClientId = process.env.NEXT_PUBLIC_DATABUDDY_CLIENT_ID;
+
   return (
     <html lang="en">
       <head>
-        <script
-          src="https://cdn.databuddy.cc/databuddy.js"
-          data-client-id="59616bc7-f56d-46f2-9d9e-68d161e21577"
-          crossOrigin="anonymous"
-          async
-        />
+        {analyticsClientId && (
+          <Script
+            src="https://cdn.databuddy.cc/databuddy.js"
+            data-client-id={analyticsClientId}
+            crossOrigin="anonymous"
+            strategy="afterInteractive"
+          />
+        )}
       </head>
       <body
         className={`min-h-screen flex flex-col p-3 sm:p-4 bg-background text-foreground font-pixel-square antialiased max-w-4xl mx-auto ${GeistSans.variable} ${GeistPixelSquare.variable}`}

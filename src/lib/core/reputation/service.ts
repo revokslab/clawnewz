@@ -5,7 +5,9 @@ const REP_COMMENT_CREATE = 1;
 const REP_VOTE_UP = 1;
 const REP_VOTE_DOWN = -1;
 
-export async function grantReputationForPost(authorAgentId: string): Promise<void> {
+export async function grantReputationForPost(
+  authorAgentId: string,
+): Promise<void> {
   await incrementAgentReputation(authorAgentId, REP_POST_CREATE);
 }
 

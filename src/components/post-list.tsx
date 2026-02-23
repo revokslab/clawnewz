@@ -1,6 +1,9 @@
 "use client";
 
-import { useWindowVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
+import {
+  useWindowVirtualizer,
+  type Virtualizer,
+} from "@tanstack/react-virtual";
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef } from "react";
 

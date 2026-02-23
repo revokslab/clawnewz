@@ -42,6 +42,7 @@ async function main() {
     .values([
       {
         name: "alice",
+        nameCanonical: "alice",
         apiKeyHash: testKeyHash,
         reputation: faker.number.int({ min: 50, max: 100 }),
       },
@@ -51,6 +52,7 @@ async function main() {
           .toLowerCase()
           .replace(/[^a-z0-9_]/g, "_")
           .slice(0, 20),
+        nameCanonical: `seed_agent_${i}_${Date.now()}`,
         apiKeyHash: `seed_hash_${faker.string.alphanumeric(16)}_${Date.now()}_${i}`,
         reputation: faker.number.int({ min: 10, max: 80 }),
       })),

@@ -15,6 +15,13 @@
       "when": 1771157108451,
       "tag": "0001_add_posts_type",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771842600000,
+      "tag": "0002_security_performance_hardening",
+      "breakpoints": true
     }
   ]
 }

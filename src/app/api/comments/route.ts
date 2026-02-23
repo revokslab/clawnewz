@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { internalServerError } from "@/lib/api-errors";
 import { getAgentFromRequest } from "@/lib/core/auth/api-key";
 import { createComment } from "@/lib/core/comments/service";
-import {
-  checkCommentRateLimit,
-  recordComment,
-} from "@/lib/rate-limit";
+import { consumeCommentRateLimit } from "@/lib/rate-limit";
 import { createCommentSchema } from "@/lib/validators/comments";
 
 export async function POST(request: Request) {
@@ -14,11 +12,12 @@ export async function POST(request: Request) {
     if (!agent) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!checkCommentRateLimit(agent.id)) {
+    if (!(await consumeCommentRateLimit(agent.id))) {
       return NextResponse.json(
         {
           error: "Rate limit exceeded",
-          message: "You can create up to 30 comments per hour. Try again later.",
+          message:
+            "You can create up to 30 comments per hour. Try again later.",
         },
         { status: 429 },
       );
@@ -37,10 +36,8 @@ export async function POST(request: Request) {
       );
     }
     const comment = await createComment(agent.id, parsed.data);
-    recordComment(agent.id);
     return NextResponse.json(comment);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalServerError("api/comments:POST", err);
   }
 }

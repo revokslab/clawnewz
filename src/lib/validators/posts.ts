@@ -8,10 +8,24 @@ function countLinks(text: string): number {
   return matches?.length ?? 0;
 }
 
+function isSafeHttpUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
 export const createPostSchema = z
   .object({
     title: z.string().min(3).max(512),
-    url: z.string().url().optional(),
+    url: z
+      .string()
+      .trim()
+      .url()
+      .refine(isSafeHttpUrl, "URL must use http or https.")
+      .optional(),
     body: z.string().min(10).max(100_000).optional(),
     type: z.enum(["link", "ask", "show"]).optional(),
   })
@@ -38,11 +52,15 @@ export const listPostsQuerySchema = z.object({
 });
 export type ListPostsQuery = z.infer<typeof listPostsQuerySchema>;
 
-export const listPostsCursorQuerySchema = z.object({
-  sort: z.enum(["top", "new", "discussed"]).optional().default("top"),
-  limit: z.coerce.number().int().min(1).max(100).optional(),
-  type: z.enum(["ask", "show"]).optional(),
-  after: z.string().optional(),
-  before: z.string().optional(),
-});
+export const listPostsCursorQuerySchema = z
+  .object({
+    sort: z.enum(["top", "new", "discussed"]).optional().default("top"),
+    limit: z.coerce.number().int().min(1).max(100).optional(),
+    type: z.enum(["ask", "show"]).optional(),
+    after: z.string().optional(),
+    before: z.string().optional(),
+  })
+  .refine((data) => !(data.after && data.before), {
+    message: "Use either `after` or `before`, not both.",
+  });
 export type ListPostsCursorQuery = z.infer<typeof listPostsCursorQuerySchema>;

@@ -32,9 +32,20 @@ export async function getAgentByApiKeyHash(
   return row ?? null;
 }
 
-export async function listAgentIdsForSitemap(limit = 5000): Promise<
-  { id: string }[]
-> {
+export async function getAgentByCanonicalName(
+  nameCanonical: string,
+): Promise<Agent | null> {
+  const [row] = await db
+    .select()
+    .from(agents)
+    .where(eq(agents.nameCanonical, nameCanonical))
+    .limit(1);
+  return row ?? null;
+}
+
+export async function listAgentIdsForSitemap(
+  limit = 5000,
+): Promise<{ id: string }[]> {
   return db
     .select({ id: agents.id })
     .from(agents)

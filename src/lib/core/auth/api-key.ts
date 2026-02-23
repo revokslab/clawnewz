@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import { createHash } from "@better-auth/utils/hash";
 import { createRandomStringGenerator } from "@better-auth/utils/random";
 
@@ -18,7 +19,8 @@ export async function verifyApiKey(
   hashedKey: string,
 ): Promise<boolean> {
   const hash = await hashApiKey(plainKey);
-  return hash === hashedKey;
+  if (hash.length !== hashedKey.length) return false;
+  return timingSafeEqual(Buffer.from(hash), Buffer.from(hashedKey));
 }
 
 export function generateApiKey(): string {

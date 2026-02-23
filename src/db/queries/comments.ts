@@ -209,32 +209,48 @@ export async function getDescendantsOfCommentIds(
   rootIds: string[],
 ): Promise<CommentWithAuthorName[]> {
   if (rootIds.length === 0) return [];
-  const allComments = await db
-    .select(selectCommentWithAuthor)
-    .from(comments)
-    .leftJoin(agents, eq(comments.authorAgentId, agents.id))
-    .where(eq(comments.postId, postId))
-    .orderBy(comments.createdAt);
-  const rootSet = new Set(rootIds);
-  const descendantIds = new Set<string>();
-  const byParent = new Map<string | null, CommentWithAuthorName[]>();
-  for (const c of allComments) {
-    const key = c.parentCommentId ?? null;
-    const list = byParent.get(key);
-    if (list) list.push(c);
-    else byParent.set(key, [c]);
-  }
-  function collectDescendants(parentId: string): void {
-    const children = byParent.get(parentId) ?? [];
-    for (const child of children) {
-      descendantIds.add(child.id);
-      collectDescendants(child.id);
-    }
-  }
-  for (const rootId of rootIds) {
-    collectDescendants(rootId);
-  }
-  return allComments.filter(
-    (c) => rootSet.has(c.id) || descendantIds.has(c.id),
+  const rootsList = sql.join(
+    rootIds.map((id) => sql`${id}::uuid`),
+    sql`,`,
   );
+  const rows = await db.execute<CommentWithAuthorName>(sql`
+    WITH RECURSIVE comment_tree AS (
+      SELECT
+        c.id AS "id",
+        c.post_id AS "postId",
+        c.parent_comment_id AS "parentCommentId",
+        c.body AS "body",
+        c.author_agent_id AS "authorAgentId",
+        c.score AS "score",
+        c.created_at AS "createdAt"
+      FROM comments c
+      WHERE c.post_id = ${postId}::uuid
+        AND c.id IN (${rootsList})
+      UNION ALL
+      SELECT
+        c.id AS "id",
+        c.post_id AS "postId",
+        c.parent_comment_id AS "parentCommentId",
+        c.body AS "body",
+        c.author_agent_id AS "authorAgentId",
+        c.score AS "score",
+        c.created_at AS "createdAt"
+      FROM comments c
+      INNER JOIN comment_tree ct ON c.parent_comment_id = ct."id"
+      WHERE c.post_id = ${postId}::uuid
+    )
+    SELECT
+      ct."id",
+      ct."postId",
+      ct."parentCommentId",
+      ct."body",
+      ct."authorAgentId",
+      ct."score",
+      ct."createdAt",
+      a.name AS "authorAgentName"
+    FROM comment_tree ct
+    LEFT JOIN agents a ON ct."authorAgentId" = a.id
+    ORDER BY ct."createdAt" ASC, ct."id" ASC
+  `);
+  return rows.rows;
 }

@@ -1,3 +1,5 @@
+import { cache } from "react";
+
 import type { CommentWithAuthorName } from "@/db/queries/comments";
 import {
   getCommentCountsByPostIds,
@@ -12,23 +14,26 @@ import {
   insertPost,
   listPosts,
   listPostsByCursor,
+  listRankedPosts,
+  listRankedPostsByCursor,
 } from "@/db/queries/posts";
 import { COMMENT_PAGE_SIZE, FEED_PAGE_SIZE } from "@/lib/constants";
 import { grantReputationForPost } from "@/lib/core/reputation/service";
-import { rankingScoreWithComments } from "@/lib/core/ranking/score";
 import {
   decodeCommentCursor,
   decodePostCursor,
   encodeCommentCursor,
   encodePostCursor,
-  type PostCursor,
 } from "@/lib/cursor-encoding";
 import type { CreatePostInput, ListPostsQuery } from "@/lib/validators/posts";
 
 export type PostWithRank = PostWithAuthorName & {
   rank?: number;
   commentCount?: number;
+  sortValue?: number;
 };
+
+export const getPostWithAuthorByIdCached = cache(getPostWithAuthorById);
 
 function derivePostType(
   title: string,
@@ -40,14 +45,16 @@ function derivePostType(
     t.startsWith("Ask:") ||
     t.startsWith("Ask HN:") ||
     t.toLowerCase().startsWith("ask:")
-  )
+  ) {
     return "ask";
+  }
   if (
     t.startsWith("Show:") ||
     t.startsWith("Show HN:") ||
     t.toLowerCase().startsWith("show:")
-  )
+  ) {
     return "show";
+  }
   return "link";
 }
 
@@ -101,7 +108,7 @@ export async function getPostWithCommentsByCursor(
     ? decodeCommentCursor(options.before)
     : null;
 
-  const post = await getPostWithAuthorById(postId);
+  const post = await getPostWithAuthorByIdCached(postId);
   if (!post) {
     return { post: null, comments: [], nextCursor: null, prevCursor: null };
   }
@@ -117,9 +124,7 @@ export async function getPostWithCommentsByCursor(
     beforeDecoded,
   );
   const rootIds = rootComments.map((c) => c.id);
-  const commentList = (await getDescendantsOfCommentIds(postId, rootIds)).sort(
-    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
-  );
+  const commentList = await getDescendantsOfCommentIds(postId, rootIds);
 
   const nextCursor =
     nextCursorObj != null ? encodeCommentCursor(nextCursorObj) : null;
@@ -152,41 +157,20 @@ export async function getFeed(query: ListPostsQuery): Promise<PostWithRank[]> {
   }
 
   if (sort === "discussed") {
-    const posts = await listPosts({
-      limit: limit + 200,
-      offset: 0,
-      orderBy: "createdAt",
+    return listRankedPosts({
+      sort: "discussed",
+      limit,
+      offset,
       type,
     });
-    const counts = await getCommentCountsByPostIds(posts.map((p) => p.id));
-    const withCount = posts
-      .map((p) => ({
-        ...p,
-        commentCount: counts.get(p.id) ?? 0,
-      }))
-      .sort((a, b) => (b.commentCount ?? 0) - (a.commentCount ?? 0));
-    return withCount.slice(offset, offset + limit);
   }
 
-  // sort === "top": time-decay ranking
-  const posts = await listPosts({
-    limit: limit + 200,
-    offset: 0,
-    orderBy: "createdAt",
+  return listRankedPosts({
+    sort: "top",
+    limit,
+    offset,
     type,
   });
-  const counts = await getCommentCountsByPostIds(posts.map((p) => p.id));
-  const withRank = posts.map((p) => ({
-    ...p,
-    commentCount: counts.get(p.id) ?? 0,
-    rank: rankingScoreWithComments(
-      p.score,
-      p.createdAt,
-      counts.get(p.id) ?? 0,
-    ),
-  }));
-  withRank.sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0));
-  return withRank.slice(offset, offset + limit);
 }
 
 export type GetFeedByCursorQuery = {
@@ -196,6 +180,16 @@ export type GetFeedByCursorQuery = {
   after?: string;
   before?: string;
 };
+
+function encodeFeedCursor(post: PostWithRank): string {
+  return encodePostCursor({
+    createdAt: post.createdAt.toISOString(),
+    id: post.id,
+    score: post.score,
+    commentCount: post.commentCount,
+    sortValue: post.sortValue,
+  });
+}
 
 export async function getFeedByCursor(query: GetFeedByCursorQuery): Promise<{
   posts: PostWithRank[];
@@ -221,106 +215,29 @@ export async function getFeedByCursor(query: GetFeedByCursorQuery): Promise<{
     }));
     const nextCursor =
       withCount.length === limit && withCount[withCount.length - 1]
-        ? encodePostCursor({
-            createdAt: withCount[withCount.length - 1].createdAt.toISOString(),
-            id: withCount[withCount.length - 1].id,
-          })
+        ? encodeFeedCursor(withCount[withCount.length - 1])
         : null;
     const prevCursor =
       withCount.length > 0 && withCount[0]
-        ? encodePostCursor({
-            createdAt: withCount[0].createdAt.toISOString(),
-            id: withCount[0].id,
-          })
+        ? encodeFeedCursor(withCount[0])
         : null;
     return { posts: withCount, nextCursor, prevCursor };
   }
 
-  if (query.sort === "discussed") {
-    const all = await listPosts({
-      limit: limit + 200,
-      offset: 0,
-      orderBy: "createdAt",
-      type: query.type,
-    });
-    const counts = await getCommentCountsByPostIds(all.map((p) => p.id));
-    const withCount: PostWithRank[] = all
-      .map((p) => ({
-        ...p,
-        commentCount: counts.get(p.id) ?? 0,
-      }))
-      .sort((a, b) => (b.commentCount ?? 0) - (a.commentCount ?? 0));
-    return sliceByCursor(withCount, limit, beforeDecoded, afterDecoded);
-  }
-
-  const all = await listPosts({
-    limit: limit + 200,
-    offset: 0,
-    orderBy: "createdAt",
+  const rankedPosts = await listRankedPostsByCursor({
+    sort: query.sort,
+    limit,
     type: query.type,
+    after: afterDecoded ?? undefined,
+    before: beforeDecoded ?? undefined,
   });
-  const counts = await getCommentCountsByPostIds(all.map((p) => p.id));
-  const withRank: PostWithRank[] = all
-    .map((p) => ({
-      ...p,
-      commentCount: counts.get(p.id) ?? 0,
-      rank: rankingScoreWithComments(
-        p.score,
-        p.createdAt,
-        counts.get(p.id) ?? 0,
-      ),
-    }))
-    .sort((a, b) => (b.rank ?? 0) - (a.rank ?? 0));
-  return sliceByCursor(withRank, limit, beforeDecoded, afterDecoded);
-}
-
-function sliceByCursor(
-  sorted: PostWithRank[],
-  limit: number,
-  before?: PostCursor | null,
-  after?: PostCursor | null,
-): {
-  posts: PostWithRank[];
-  nextCursor: string | null;
-  prevCursor: string | null;
-} {
-  let slice: PostWithRank[];
-  if (before) {
-    const idx = sorted.findIndex(
-      (p) =>
-        p.createdAt.toISOString() === before.createdAt && p.id === before.id,
-    );
-    if (idx <= 0) {
-      slice = sorted.slice(0, limit);
-    } else {
-      slice = sorted.slice(Math.max(0, idx - limit), idx);
-    }
-  } else if (after) {
-    const idx = sorted.findIndex(
-      (p) => p.createdAt.toISOString() === after.createdAt && p.id === after.id,
-    );
-    const start = idx < 0 ? 0 : idx + 1;
-    slice = sorted.slice(start, start + limit);
-  } else {
-    slice = sorted.slice(0, limit);
-  }
   const nextCursor =
-    slice.length === limit && slice[slice.length - 1]
-      ? encodePostCursor({
-          createdAt: slice[slice.length - 1].createdAt.toISOString(),
-          id: slice[slice.length - 1].id,
-          score: slice[slice.length - 1].score,
-          commentCount: slice[slice.length - 1].commentCount,
-        })
+    rankedPosts.length === limit && rankedPosts[rankedPosts.length - 1]
+      ? encodeFeedCursor(rankedPosts[rankedPosts.length - 1])
       : null;
   const prevCursor =
-    slice.length > 0 && slice[0]
-      ? encodePostCursor({
-          createdAt: slice[0].createdAt.toISOString(),
-          id: slice[0].id,
-          score: slice[0].score,
-          commentCount: slice[0].commentCount,
-        })
+    rankedPosts.length > 0 && rankedPosts[0]
+      ? encodeFeedCursor(rankedPosts[0])
       : null;
-  return { posts: slice, nextCursor, prevCursor };
+  return { posts: rankedPosts, nextCursor, prevCursor };
 }

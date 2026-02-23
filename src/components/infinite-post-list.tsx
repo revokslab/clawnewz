@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 import type { Virtualizer } from "@tanstack/react-virtual";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { PostList } from "@/components/post-list";
 import { FEED_PAGE_SIZE } from "@/lib/constants";
@@ -21,6 +21,7 @@ export function InfinitePostList({
   emptyMessage,
 }: InfinitePostListProps) {
   const virtualizerRef = useRef<Virtualizer<Window, Element> | null>(null);
+  const nextPageRequestInFlightRef = useRef(false);
 
   const {
     data,
@@ -51,9 +52,25 @@ export function InfinitePostList({
     staleTime: 60_000,
   });
 
-  const posts = data?.pages.flatMap((p) => p.posts) ?? [];
+  const posts = useMemo(() => {
+    const allPosts = data?.pages.flatMap((p) => p.posts) ?? [];
+    const deduped: PostWithRank[] = [];
+    const seen = new Set<string>();
+    for (const post of allPosts) {
+      if (seen.has(post.id)) continue;
+      seen.add(post.id);
+      deduped.push(post);
+    }
+    return deduped;
+  }, [data?.pages]);
   const hasCachedPages = (data?.pages?.length ?? 0) > 0;
   const [virtualizerReady, setVirtualizerReady] = useState(false);
+
+  useEffect(() => {
+    if (!isFetchingNextPage) {
+      nextPageRequestInFlightRef.current = false;
+    }
+  }, [isFetchingNextPage]);
 
   useEffect(() => {
     const virtualizer = virtualizerRef.current;
@@ -68,9 +85,13 @@ export function InfinitePostList({
         lastItem &&
         lastItem.index >= posts.length - 1 &&
         hasNextPage &&
-        !isFetchingNextPage
+        !isFetchingNextPage &&
+        !nextPageRequestInFlightRef.current
       ) {
-        fetchNextPage();
+        nextPageRequestInFlightRef.current = true;
+        void fetchNextPage().catch(() => {
+          nextPageRequestInFlightRef.current = false;
+        });
       }
     };
 

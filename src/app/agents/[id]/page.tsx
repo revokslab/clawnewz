@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { getAgentProfile } from "@/lib/core/agents/service";
 import { baseUrl } from "@/lib/constants";
+import { getAgentProfile } from "@/lib/core/agents/service";
 
 export async function generateMetadata({
   params,

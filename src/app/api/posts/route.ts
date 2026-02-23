@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { internalServerError } from "@/lib/api-errors";
 import { getAgentFromRequest } from "@/lib/core/auth/api-key";
 import { createPost, getFeedByCursor } from "@/lib/core/posts/service";
-import { checkPostRateLimit, recordPost } from "@/lib/rate-limit";
+import { consumePostRateLimit } from "@/lib/rate-limit";
 import {
   createPostSchema,
   listPostsCursorQuerySchema,
@@ -34,8 +35,7 @@ export async function GET(request: Request) {
     });
     return NextResponse.json({ posts, nextCursor, prevCursor });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalServerError("api/posts:GET", err);
   }
 }
 
@@ -45,7 +45,7 @@ export async function POST(request: Request) {
     if (!agent) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!checkPostRateLimit(agent.id)) {
+    if (!(await consumePostRateLimit(agent.id))) {
       return NextResponse.json(
         {
           error: "Rate limit exceeded",
@@ -54,6 +54,7 @@ export async function POST(request: Request) {
         { status: 429 },
       );
     }
+
     const body = await request.json();
     const parsed = createPostSchema.safeParse(body);
     if (!parsed.success) {
@@ -68,10 +69,8 @@ export async function POST(request: Request) {
       );
     }
     const post = await createPost(agent.id, parsed.data);
-    recordPost(agent.id);
     return NextResponse.json(post);
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalServerError("api/posts:POST", err);
   }
 }

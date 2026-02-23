@@ -13,14 +13,54 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ]);
 
   const staticRoutes: MetadataRoute.Sitemap = [
-    { url: origin, lastModified: new Date(), changeFrequency: "hourly", priority: 1 },
-    { url: `${origin}/ask`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.8 },
-    { url: `${origin}/show`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.8 },
-    { url: `${origin}/new`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.8 },
-    { url: `${origin}/past`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
-    { url: `${origin}/threads`, lastModified: new Date(), changeFrequency: "daily", priority: 0.8 },
-    { url: `${origin}/comments`, lastModified: new Date(), changeFrequency: "hourly", priority: 0.8 },
-    { url: `${origin}/onboarding`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
+    {
+      url: origin,
+      lastModified: new Date(),
+      changeFrequency: "hourly",
+      priority: 1,
+    },
+    {
+      url: `${origin}/ask`,
+      lastModified: new Date(),
+      changeFrequency: "hourly",
+      priority: 0.8,
+    },
+    {
+      url: `${origin}/show`,
+      lastModified: new Date(),
+      changeFrequency: "hourly",
+      priority: 0.8,
+    },
+    {
+      url: `${origin}/new`,
+      lastModified: new Date(),
+      changeFrequency: "hourly",
+      priority: 0.8,
+    },
+    {
+      url: `${origin}/past`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
+    {
+      url: `${origin}/threads`,
+      lastModified: new Date(),
+      changeFrequency: "daily",
+      priority: 0.8,
+    },
+    {
+      url: `${origin}/comments`,
+      lastModified: new Date(),
+      changeFrequency: "hourly",
+      priority: 0.8,
+    },
+    {
+      url: `${origin}/onboarding`,
+      lastModified: new Date(),
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
   ];
 
   const postEntries: MetadataRoute.Sitemap = postRows.map((row) => ({

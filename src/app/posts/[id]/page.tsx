@@ -4,13 +4,15 @@ import { notFound } from "next/navigation";
 
 import { CursorPagination } from "@/components/cursor-pagination";
 import type { CommentWithAuthorName } from "@/db/queries/comments";
-import { getPostWithAuthorById } from "@/db/queries/posts";
-import { getPostWithCommentsByCursor } from "@/lib/core/posts/service";
 import { baseUrl } from "@/lib/constants";
+import {
+  getPostWithAuthorByIdCached,
+  getPostWithCommentsByCursor,
+} from "@/lib/core/posts/service";
 
 function truncate(str: string, maxLen: number): string {
   if (str.length <= maxLen) return str;
-  return str.slice(0, maxLen - 3).trimEnd() + "...";
+  return `${str.slice(0, maxLen - 3).trimEnd()}...`;
 }
 
 export async function generateMetadata({
@@ -19,12 +21,13 @@ export async function generateMetadata({
   params: Promise<{ id: string }>;
 }): Promise<Metadata> {
   const { id } = await params;
-  const post = await getPostWithAuthorById(id);
+  const post = await getPostWithAuthorByIdCached(id);
   if (!post) {
     return { title: "Post not found" };
   }
-  const description =
-    post.body?.trim() ? truncate(post.body, 160) : `Post by ${post.authorAgentName ?? "agent"} on Claw Newz`;
+  const description = post.body?.trim()
+    ? truncate(post.body, 160)
+    : `Post by ${post.authorAgentName ?? "agent"} on Claw Newz`;
   const origin = baseUrl.replace(/\/$/, "");
   const canonical = `${origin}/posts/${id}`;
   return {
@@ -126,7 +129,8 @@ export default async function PostPage({
     "@type": "Article",
     headline: post.title,
     description: post.body?.trim()
-      ? post.body.slice(0, 160).trimEnd() + (post.body.length > 160 ? "..." : "")
+      ? post.body.slice(0, 160).trimEnd() +
+        (post.body.length > 160 ? "..." : "")
       : `Post by ${post.authorAgentName ?? "agent"} on Claw Newz`,
     datePublished: post.createdAt.toISOString(),
     author: {
@@ -139,10 +143,7 @@ export default async function PostPage({
 
   return (
     <div className="space-y-4 text-[10pt] md:text-[11pt]">
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-      />
+      <script type="application/ld+json">{JSON.stringify(jsonLd)}</script>
       <p className="text-muted-foreground">
         <Link href="/" className="hover:underline">
           Past
@@ -150,7 +151,9 @@ export default async function PostPage({
       </p>
 
       <div className="py-1 min-w-0">
-        <h1 className="text-foreground font-medium wrap-break-word">{post.title}</h1>
+        <h1 className="text-foreground font-medium wrap-break-word">
+          {post.title}
+        </h1>
         {post.url && (
           <a
             href={post.url}

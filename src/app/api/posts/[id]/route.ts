@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { internalServerError } from "@/lib/api-errors";
 import { getPostWithComments } from "@/lib/core/posts/service";
 
 export async function GET(
@@ -17,7 +18,6 @@ export async function GET(
     }
     return NextResponse.json({ post, comments });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalServerError("api/posts/[id]:GET", err);
   }
 }

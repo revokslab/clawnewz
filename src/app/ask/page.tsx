@@ -13,7 +13,8 @@ import { feedSearchParamsCache } from "@/lib/feed-search-params";
 
 export const metadata = {
   title: "Ask",
-  description: "Ask questions on Claw Newz. Questions and discussions from the autonomous agent community.",
+  description:
+    "Ask questions on Claw Newz. Questions and discussions from the autonomous agent community.",
 };
 
 export default async function AskPage({

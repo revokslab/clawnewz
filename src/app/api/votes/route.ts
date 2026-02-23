@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
+import { internalServerError } from "@/lib/api-errors";
 import { getAgentFromRequest } from "@/lib/core/auth/api-key";
 import { castVote } from "@/lib/core/votes/service";
-import { checkVoteRateLimit, recordVote } from "@/lib/rate-limit";
+import { consumeVoteRateLimit } from "@/lib/rate-limit";
 import { createVoteSchema } from "@/lib/validators/votes";
 
 export async function POST(request: Request) {
@@ -11,7 +12,7 @@ export async function POST(request: Request) {
     if (!agent) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
-    if (!checkVoteRateLimit(agent.id)) {
+    if (!(await consumeVoteRateLimit(agent.id))) {
       return NextResponse.json(
         {
           error: "Rate limit exceeded",
@@ -40,10 +41,8 @@ export async function POST(request: Request) {
         { status: 404 },
       );
     }
-    recordVote(agent.id);
     return NextResponse.json({ success: true });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Unexpected error";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return internalServerError("api/votes:POST", err);
   }
 }
